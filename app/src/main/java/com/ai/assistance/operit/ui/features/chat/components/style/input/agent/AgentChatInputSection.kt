@@ -1721,6 +1721,9 @@ private fun AgentModelSelectorPopup(
                                 context.getString(R.string.model_config) to
                                     context.getString(R.string.model_config_desc)
                         },
+                        currentChatId = currentChatId,
+                        chatBoundModelConfigId = chatBoundModelConfigId,
+                        onToggleChatModelBinding = onToggleChatModelBinding,
                     )
                 }
             }
@@ -1998,6 +2001,10 @@ private fun AgentModelSelectorItem(
     allowCollapse: Boolean = true,
     onManageClick: () -> Unit,
     onInfoClick: () -> Unit,
+    // op1moga: 会话级模型绑定（默认不启用，保持既有调用方行为不变）
+    currentChatId: String? = null,
+    chatBoundModelConfigId: String? = null,
+    onToggleChatModelBinding: ((Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val showAutoGlmError: () -> Unit = {
