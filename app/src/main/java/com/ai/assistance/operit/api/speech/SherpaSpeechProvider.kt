@@ -160,7 +160,7 @@ class SherpaSpeechProvider(private val context: Context) : SpeechService {
                     targetDir
                 } else {
                     AppLogger.d(TAG, "STT model missing, starting network download...")
-                    _recognitionState.value = SpeechService.RecognitionState.INITIALIZING
+                    _recognitionState.value = SpeechService.RecognitionState.PREPARING
                     downloadModelFiles(targetDir)
                     targetDir
                 }
