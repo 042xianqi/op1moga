@@ -540,7 +540,8 @@ object SystemToolPrompts {
             basicTools,
             adjustedFileSystemTools,
             httpTools,
-            memoryTools
+            memoryTools,
+            agentContextToolsEn()
         )
     }
 
@@ -615,7 +616,8 @@ object SystemToolPrompts {
             basicToolsCn,
             adjustedFileSystemTools,
             httpToolsCn,
-            memoryToolsCn
+            memoryToolsCn,
+            agentContextToolsCn()
         )
     }
 
@@ -1004,4 +1006,226 @@ object SystemToolPrompts {
         return afterContext.toolPrompt
             ?: renderToolPromptFromAvailableTools(afterContext.availableTools)
     }
+
+    // ==================== op1moga: Agent 上下文三件套工具描述 ====================
+    // 只注册执行器而不提供描述时，模型在 system prompt 里看不到工具名，永远不会调用。
+    // 这里补齐中英文描述，与 AgentContextExecutor 的动作保持一致。
+
+    private fun agentContextToolsEn(): SystemToolPromptCategory =
+            SystemToolPromptCategory(
+                    categoryName = "AGENT CONTEXT AND TASK MEMORY",
+                    categoryHeader =
+                            "Tools for persistent memory, task planning and working notes.",
+                    tools =
+                            listOf(
+                                    ToolPrompt(
+                                            name = "memory",
+                                            description =
+                                                    "Persist long-term facts, user preferences and project conventions.",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "save | query | list | delete"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "key",
+                                                                    description = "short memory key",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "value",
+                                                                    description = "memory content",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "kind",
+                                                                    description =
+                                                                            "preference | rule | fact | project_info",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "scope",
+                                                                    description =
+                                                                            "global | project | session",
+                                                                    required = false,
+                                                                    default = "global"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "query",
+                                                                    description = "keyword for query",
+                                                                    required = false
+                                                            )
+                                                    )
+                                    ),
+                                    ToolPrompt(
+                                            name = "plan",
+                                            description =
+                                                    "Create and advance a multi-step task plan for complex work.",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "replace_active | get_active | advance | clear_active"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "goal",
+                                                                    description = "overall goal",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "steps",
+                                                                    description =
+                                                                            "array of step objects, each with title and status",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "stepId",
+                                                                    description = "step id to advance",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "status",
+                                                                    description =
+                                                                            "active | completed | cancelled",
+                                                                    required = false
+                                                            )
+                                                    ),
+                                            notes =
+                                                    "For tasks needing 3+ tool calls. Build the plan first, advance per step, clear when done."
+                                    ),
+                                    ToolPrompt(
+                                            name = "scratchpad",
+                                            description =
+                                                    "Temporary working notes, debugging hypotheses and sub-goals.",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "save | get | list | delete | clear"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "key",
+                                                                    description = "note key",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "value",
+                                                                    description = "note content",
+                                                                    required = false
+                                                            )
+                                                    )
+                                    )
+                            )
+            )
+
+    private fun agentContextToolsCn(): SystemToolPromptCategory =
+            SystemToolPromptCategory(
+                    categoryName = "AGENT 上下文与任务记忆",
+                    categoryHeader = "用于长期记忆、任务规划与工作草稿的工具。",
+                    tools =
+                            listOf(
+                                    ToolPrompt(
+                                            name = "memory",
+                                            description = "持久化长期事实、用户偏好与项目规范。",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "save | query | list | delete"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "key",
+                                                                    description = "记忆键名，简短",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "value",
+                                                                    description = "记忆内容",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "kind",
+                                                                    description =
+                                                                            "preference | rule | fact | project_info",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "scope",
+                                                                    description =
+                                                                            "global | project | session",
+                                                                    required = false,
+                                                                    default = "global"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "query",
+                                                                    description = "查询关键词",
+                                                                    required = false
+                                                            )
+                                                    )
+                                    ),
+                                    ToolPrompt(
+                                            name = "plan",
+                                            description = "为复杂任务建立并推进多步骤计划。",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "replace_active | get_active | advance | clear_active"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "goal",
+                                                                    description = "总体目标",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "steps",
+                                                                    description =
+                                                                            "步骤对象数组，每项含 title 与 status",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "stepId",
+                                                                    description = "要推进的步骤 id",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "status",
+                                                                    description =
+                                                                            "active | completed | cancelled",
+                                                                    required = false
+                                                            )
+                                                    ),
+                                            notes =
+                                                    "需要 3 次以上工具调用时使用。先建计划，每完成一步 advance，全部完成 clear_active。"
+                                    ),
+                                    ToolPrompt(
+                                            name = "scratchpad",
+                                            description = "临时工作草稿、排查假说与子目标。",
+                                            parametersStructured =
+                                                    listOf(
+                                                            ToolParameterSchema(
+                                                                    name = "action",
+                                                                    description =
+                                                                            "save | get | list | delete | clear"
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "key",
+                                                                    description = "便签键名",
+                                                                    required = false
+                                                            ),
+                                                            ToolParameterSchema(
+                                                                    name = "value",
+                                                                    description = "便签内容",
+                                                                    required = false
+                                                            )
+                                                    )
+                                    )
+                            )
+            )
 }
