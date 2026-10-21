@@ -133,11 +133,15 @@ jobs:
           path: ${{ env.MANUAL_DEPS_DIR }}
           key: android-full-deps-${{ runner.os }}-${{ hashFiles('ci/script/download_android_dependencies.sh', 'ci/script/prepare_android_dependencies.py') }}
 
+      # op1moga: STT 模型默认不再打包（省约 136MB），由 App 首次使用语音时联网下载。
+      # 因此这里默认不恢复模型缓存，避免旧缓存把模型重新塞回 assets，
+      # 导致 APK 瘦身失效。需要离线内置时走 -Poperit.bundleSttModels=true 的自建流程。
       - name: Restore generated STT asset cache
+        if: ${{ github.event_name == 'push' && vars.OPERIT_BUNDLE_STT == 'true' }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: app/build/generated/stt-model-assets
-          key: stt-model-assets-${{ runner.os }}-${{ hashFiles('app/config/stt-model-assets.properties') }}
+          key: stt-model-assets-bundled-${{ runner.os }}-${{ hashFiles('app/config/stt-model-assets.properties') }}
 
       - name: Download Android dependencies
         if: steps.cache-manual-deps.outputs.cache-hit != 'true'
