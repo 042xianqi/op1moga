@@ -27,6 +27,8 @@ import com.ai.assistance.operit.data.model.ApiKeyFormatValidator
 import com.ai.assistance.operit.data.model.ApiProviderType
 import com.ai.assistance.operit.data.model.AttachmentInfo
 import com.ai.assistance.operit.data.model.AITool
+import com.ai.assistance.operit.data.db.AppDatabase
+import com.ai.assistance.operit.data.model.AgentPlanEntity
 import com.ai.assistance.operit.data.model.ChatHistory
 import com.ai.assistance.operit.data.model.ChatMessage
 import com.ai.assistance.operit.data.model.ChatMessageLocatorPreview
@@ -43,7 +45,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -248,6 +253,36 @@ class ChatViewModel(private val context: Context) : ViewModel() {
     }
     val chatHistories: StateFlow<List<ChatHistory>> by lazy { chatHistoryDelegate.chatHistories }
     val currentChatId: StateFlow<String?> by lazy { chatHistoryDelegate.currentChatId }
+
+    /**
+     * op1moga: 当前会话的活跃任务规划（模型通过 plan 工具写入的 AgentPlanEntity）。
+     *
+     * 以 currentChatId + 聊天消息列表为键重新读取：一轮执行内状态会多次变化
+     * （工具往返、压缩、等待审批），借此近似实时刷新看板进度。
+     * 无规划或状态非 active 时为 null，看板自然隐藏。
+     */
+    val activePlan: StateFlow<AgentPlanEntity?> by lazy {
+        combine(currentChatId, chatHistory) { chatId, _ -> chatId }
+            .distinctUntilChanged()
+            .flatMapLatest { chatId ->
+                flow {
+                    val plan =
+                        if (chatId.isNullOrBlank()) {
+                            null
+                        } else {
+                            runCatching {
+                                    AppDatabase.getDatabase(context)
+                                        .agentContextDao()
+                                        .getActivePlan(chatId)
+                                }
+                                .getOrNull()
+                                ?.takeIf { it.status == "active" }
+                        }
+                    emit(plan)
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
     val hasOlderDisplayHistory: StateFlow<Boolean> by lazy {
         chatHistoryDelegate.hasOlderDisplayHistory
     }

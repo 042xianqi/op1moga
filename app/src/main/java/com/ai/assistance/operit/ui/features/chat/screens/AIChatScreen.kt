@@ -57,6 +57,8 @@ import com.ai.assistance.operit.data.preferences.UserPreferencesManager
 import com.ai.assistance.operit.data.preferences.WaifuPreferences
 import com.ai.assistance.operit.ui.components.ErrorDialog
 import com.ai.assistance.operit.ui.features.chat.components.*
+import com.ai.assistance.operit.ui.features.chat.components.plan.PlanStepParser
+import com.ai.assistance.operit.ui.features.chat.components.plan.StickyPlanBar
 import com.ai.assistance.operit.ui.features.chat.components.style.input.agent.AgentChatInputSection
 import com.ai.assistance.operit.ui.features.chat.components.style.input.classic.ClassicChatInputSection
 import com.ai.assistance.operit.ui.features.chat.components.style.input.common.ChatInputEvents
@@ -279,6 +281,8 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
     val showChatHistorySelector by actualViewModel.showChatHistorySelector.collectAsState()
     val chatHistories by actualViewModel.chatHistories.collectAsState()
     val currentChatId by actualViewModel.currentChatId.collectAsState()
+    // op1moga: 当前会话的活跃任务规划，用于置底计划条
+    val activePlan by actualViewModel.activePlan.collectAsState()
     val hasNewerDisplayHistory by actualViewModel.hasNewerDisplayHistory.collectAsState()
     val isLoadingDisplayWindow by actualViewModel.isLoadingDisplayWindow.collectAsState()
     val popupMessage by actualViewModel.popupMessage.collectAsState()
@@ -1087,6 +1091,22 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
                                     chatBoundModelConfigId = chatBoundModelConfigId,
                                     chatBoundModelIndex = chatBoundModelIndex,
                                     onChatModelBindingChange = onChatModelBindingChange
+                            )
+                        }
+                    }
+
+                    // op1moga: 置底任务计划条（固定在输入框上方，滚动时始终可见）
+                    activePlan?.let { plan ->
+                        val planSteps =
+                            remember(plan.stepsJson) { PlanStepParser.parse(plan.stepsJson) }
+                        if (planSteps.isNotEmpty()) {
+                            StickyPlanBar(
+                                goal = plan.goal,
+                                steps = planSteps,
+                                modifier =
+                                    Modifier.align(Alignment.BottomCenter)
+                                        .padding(horizontal = 8.dp)
+                                        .graphicsLayer { translationY = -inputBarTranslationYPx }
                             )
                         }
                     }
