@@ -2096,6 +2096,7 @@
     <string name="common_collapse">Collapse</string>
     <string name="common_expand_more">Expand More</string>
     <string name="nav_memory_base">Memory Base</string>
+    <string name="nav_agent_context">Agent Context</string>
     
     <!-- Manual Memory Update -->
     <string name="manual_memory_update">Manual Memory Save</string>

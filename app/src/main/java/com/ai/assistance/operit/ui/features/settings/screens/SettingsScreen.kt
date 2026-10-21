@@ -46,6 +46,8 @@ fun SettingsScreen(
         navigateToModelPrompts: () -> Unit,
         navigateToFunctionalConfig: () -> Unit,
         navigateToChatHistorySettings: () -> Unit,
+        /** op1moga: 进入 Agent 上下文管理（长期记忆 / 工作草稿） */
+        navigateToAgentContext: () -> Unit,
         navigateToChatBackupSettings: () -> Unit,
         navigateToLanguageSettings: () -> Unit,
         navigateToSpeechServicesSettings: () -> Unit,
@@ -270,6 +272,14 @@ fun SettingsScreen(
                                 subtitle = stringResource(id = R.string.settings_chat_history_management_subtitle),
                                 icon = Icons.Default.ManageHistory,
                                 onClick = navigateToChatHistorySettings
+                        )
+
+                        // op1moga: Agent 上下文管理入口（三件套的展示层）
+                        CompactSettingsItem(
+                                title = stringResource(id = R.string.nav_agent_context),
+                                subtitle = "查看 AI 保存的长期记忆与工作草稿",
+                                icon = Icons.Default.Psychology,
+                                onClick = navigateToAgentContext
                         )
 
                         CompactSettingsItem(

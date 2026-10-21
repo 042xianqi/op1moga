@@ -46,6 +46,7 @@ import com.ai.assistance.operit.ui.features.packages.screens.toArtifactPublishCl
 import com.ai.assistance.operit.ui.features.packages.market.ArtifactPublishClusterContext
 import com.ai.assistance.operit.ui.features.packages.market.MarketStatsType
 import com.ai.assistance.operit.ui.features.packages.market.PluginCreationIntent
+import com.ai.assistance.operit.ui.features.settings.screens.AgentContextScreen
 import com.ai.assistance.operit.ui.features.settings.screens.ChatBackupSettingsScreen
 import com.ai.assistance.operit.ui.features.settings.screens.ChatHistorySettingsScreen
 import com.ai.assistance.operit.ui.features.settings.screens.ContextSummarySettingsScreen
@@ -609,6 +610,7 @@ sealed class Screen(
                     navigateToModelPrompts = { navigateTo(ModelPromptsSettings) },
                     navigateToFunctionalConfig = { navigateTo(FunctionalConfig) },
                     navigateToChatHistorySettings = { navigateTo(ChatHistorySettings) },
+                    navigateToAgentContext = { navigateTo(AgentContextSettings) },
                     navigateToChatBackupSettings = { navigateTo(ChatBackupSettings) },
                     navigateToLanguageSettings = { navigateTo(LanguageSettings) },
                     navigateToSpeechServicesSettings = { navigateTo(SpeechServicesSettings) },
@@ -1065,6 +1067,22 @@ sealed class Screen(
                 onGestureConsumed: (Boolean) -> Unit
         ) {
             LayoutAdjustmentSettingsScreen(onNavigateBack = onGoBack)
+        }
+    }
+
+    data object AgentContextSettings :
+            Screen(navItem = NavItem.AgentContext, titleRes = R.string.nav_agent_context) {
+        @Composable
+        override fun Content(
+                navController: NavController,
+                navigateTo: ScreenNavigationHandler,
+                onGoBack: () -> Unit,
+                hasBackgroundImage: Boolean,
+                onLoading: (Boolean) -> Unit,
+                onError: (String) -> Unit,
+                onGestureConsumed: (Boolean) -> Unit
+        ) {
+            AgentContextScreen()
         }
     }
 

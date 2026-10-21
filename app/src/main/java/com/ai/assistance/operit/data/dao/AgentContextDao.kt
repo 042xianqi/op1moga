@@ -163,6 +163,10 @@ interface AgentContextDao {
     @Query("SELECT * FROM agent_scratchpads WHERE sessionId = :sessionId ORDER BY updatedAt DESC")
     suspend fun listScratchpads(sessionId: String): List<AgentScratchpadEntity>
 
+    /** op1moga: 管理页需要跨会话总览全部草稿 */
+    @Query("SELECT * FROM agent_scratchpads ORDER BY updatedAt DESC")
+    suspend fun listAllScratchpads(): List<AgentScratchpadEntity>
+
     @Query("DELETE FROM agent_scratchpads WHERE sessionId = :sessionId AND `key` = :key")
     suspend fun deleteScratchpad(sessionId: String, key: String)
 

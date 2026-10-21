@@ -24,6 +24,7 @@
     <string name="common_expand_more">展开更多</string>
     <string name="nav_packages">包管理</string>
     <string name="nav_memory_base">记忆库</string>
+    <string name="nav_agent_context">Agent 上下文</string>
     <string name="nav_assistant_config">助手配置</string>
     <string name="nav_terminal">终端</string>
     <string name="nav_toolbox">工具箱</string>

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
@@ -38,6 +39,9 @@ sealed class NavItem(val route: String, val titleResId: Int, val icon: ImageVect
         object Packages : NavItem("packages", R.string.nav_packages, Icons.Default.Extension)
         object MemoryBase :
                 NavItem("memory_base", R.string.nav_memory_base, Icons.Default.History)
+        /** op1moga: Agent 上下文管理（长期记忆 / 工作草稿） */
+        object AgentContext :
+                NavItem("agent_context", R.string.nav_agent_context, Icons.Default.Psychology)
         object Terminal : NavItem("terminal", R.string.terminal, Icons.Default.Terminal)
         object Toolbox : NavItem("toolbox", R.string.toolbox, Icons.Default.Apps)
         object About : NavItem("about", R.string.nav_about, Icons.Default.Info)
