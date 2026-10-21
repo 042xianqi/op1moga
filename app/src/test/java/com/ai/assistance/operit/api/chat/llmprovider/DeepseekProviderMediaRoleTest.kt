@@ -232,7 +232,7 @@ class DeepseekProviderMediaRoleTest {
         availableTools: List<ToolPrompt>
     ): JSONObject {
         val provider =
-            OpenAIResponsesProvider(
+            TestableOpenAIResponsesProvider(
                 responsesApiEndpoint = "https://example.test/v1/responses",
                 apiKeyProvider = SingleApiKeyProvider("test-key"),
                 modelName = "openai-responses-test",
@@ -241,7 +241,7 @@ class DeepseekProviderMediaRoleTest {
                 enableToolCall = true
             )
         val body =
-            provider.createRequestBody(
+            provider.exposeRequestBody(
                 context = mock<Context>(),
                 chatHistory = history,
                 modelParameters = emptyList<ModelParameter<*>>(),
@@ -253,6 +253,45 @@ class DeepseekProviderMediaRoleTest {
         val buffer = Buffer()
         body.writeTo(buffer)
         return JSONObject(buffer.readUtf8())
+    }
+
+    /**
+     * op1moga: createRequestBody 在父类里是 protected open，
+     * 测试无法直接调用，故用子类把受保护方法暴露出来（不改变生产行为）。
+     */
+    private class TestableOpenAIResponsesProvider(
+        responsesApiEndpoint: String,
+        apiKeyProvider: ApiKeyProvider,
+        modelName: String,
+        client: OkHttpClient,
+        supportsVision: Boolean = false,
+        enableToolCall: Boolean = false,
+    ) : OpenAIResponsesProvider(
+        responsesApiEndpoint = responsesApiEndpoint,
+        apiKeyProvider = apiKeyProvider,
+        modelName = modelName,
+        client = client,
+        supportsVision = supportsVision,
+        enableToolCall = enableToolCall,
+    ) {
+        fun exposeRequestBody(
+            context: Context,
+            chatHistory: List<PromptTurn>,
+            modelParameters: List<ModelParameter<*>>,
+            enableThinking: Boolean,
+            stream: Boolean,
+            availableTools: List<ToolPrompt>?,
+            preserveThinkInHistory: Boolean,
+        ): RequestBody =
+            createRequestBody(
+                context = context,
+                chatHistory = chatHistory,
+                modelParameters = modelParameters,
+                enableThinking = enableThinking,
+                stream = stream,
+                availableTools = availableTools,
+                preserveThinkInHistory = preserveThinkInHistory,
+            )
     }
 
     private companion object {
