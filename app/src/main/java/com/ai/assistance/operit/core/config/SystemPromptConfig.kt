@@ -172,6 +172,8 @@ PACKAGE_SYSTEM_GUIDELINES_SECTION
 
 ACTIVE_PACKAGES_SECTION
 
+AGENT_CONTEXT_GUIDELINES_SECTION
+
 AVAILABLE_TOOLS_SECTION
 """.trimIndent()
 
@@ -188,6 +190,8 @@ TOOL_USAGE_GUIDELINES_SECTION
 PACKAGE_SYSTEM_GUIDELINES_SECTION
 
 ACTIVE_PACKAGES_SECTION
+
+AGENT_CONTEXT_GUIDELINES_SECTION
 
 AVAILABLE_TOOLS_SECTION""".trimIndent()
 
@@ -377,10 +381,32 @@ AVAILABLE_TOOLS_SECTION""".trimIndent()
         workspaceRuleFileContent = workspaceRuleFile?.content.orEmpty()
     )
 
+    // op1moga: Agent 上下文三件套指导（对齐太墟 BuiltinSkills.agent_context）
+    // 只在工具开启时注入，避免关掉工具后模型仍在描述里看到这三条
+    val agentContextGuidelines =
+        if (!enableTools) {
+            ""
+        } else if (useEnglish) {
+            """
+AGENT CONTEXT AND TASK MEMORY PLANNING:
+1. Long-term memory (memory): when the user expresses a preference, an architecture convention, or an important fact, proactively call memory(action="save", key=..., value=..., kind="preference"|"rule"|"fact"|"project_info") to persist it. Use memory(action="query", query=...) to recall.
+2. Task planning (plan): for any complex multi-step task, first call plan(action="replace_active", goal=..., steps=[...]) to break it down, then call plan(action="advance", ...) as each step completes, and plan(action="clear_active") when done.
+3. Working notes (scratchpad): use scratchpad(action="save"|"get"|"list", key=..., value=...) for temporary analysis drafts, debugging hypotheses and sub-goals.
+""".trimIndent()
+        } else {
+            """
+【Agent 上下文与任务记忆规划】：
+1. 长期记忆（memory）：当用户表达偏好、架构规范或重要事实时，主动调用 memory(action="save", key=..., value=..., kind="preference"|"rule"|"fact"|"project_info") 持久化存储；需要回忆时用 memory(action="query", query=...)。
+2. 任务规划（plan）：对于复杂多步骤任务，第一时间调用 plan(action="replace_active", goal=..., steps=[...]) 拆解子步骤，并在完成每一步时用 plan(action="advance", ...) 更新进度；全部完成后用 plan(action="clear_active") 收尾。
+3. 工作便签（scratchpad）：临时分析草稿、排查假说与子目标使用 scratchpad(action="save"|"get"|"list", key=..., value=...) 记录。
+""".trimIndent()
+        }
+
     // Build prompt with appropriate sections
     var prompt = templateToUse
         .replace("ACTIVE_PACKAGES_SECTION", if (enableTools) packagesSection.toString() else "")
         .replace("WORKSPACE_GUIDELINES_SECTION", workspaceGuidelines)
+        .replace("AGENT_CONTEXT_GUIDELINES_SECTION", agentContextGuidelines)
 
     // Determine the available tools string based on tool visibility and recognition capabilities.
     // 当使用Tool Call API时，不在系统提示词中包含工具描述（工具已通过API的tools字段发送）
