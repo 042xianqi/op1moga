@@ -482,7 +482,9 @@ class ChatHistoryManager private constructor(private val context: Context) {
             characterCardName = this.characterCardName, // 映射characterCardName字段
             characterGroupId = this.characterGroupId, // 映射characterGroupId字段
             locked = this.locked,
-            pinned = this.pinned
+            pinned = this.pinned,
+            chatModelConfigId = this.chatModelConfigId,
+            chatModelIndex = this.chatModelIndex
         )
     }
 
@@ -697,6 +699,33 @@ class ChatHistoryManager private constructor(private val context: Context) {
                 chatDao.updateChatPinned(chatId, pinned)
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to update chat pinned state for chat $chatId", e)
+                throw e
+            }
+        }
+    }
+
+    /**
+     * op1moga: 设置会话级模型绑定。
+     *
+     * 传 null 表示清除绑定，回到全局 / 角色卡逻辑。
+     * chatHistoriesFlow 直接映射 chatDao.getAllChats()，写入后 UI 会自动刷新，
+     * 不需要额外维护运行时缓存。
+     */
+    suspend fun updateChatModelBinding(
+        chatId: String,
+        chatModelConfigId: String?,
+        chatModelIndex: Int?
+    ) {
+        val normalizedConfigId = chatModelConfigId?.takeIf { it.isNotBlank() }
+        chatMutex(chatId).withLock {
+            try {
+                chatDao.updateChatModelBinding(
+                    chatId = chatId,
+                    chatModelConfigId = normalizedConfigId,
+                    chatModelIndex = if (normalizedConfigId == null) null else chatModelIndex
+                )
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Failed to update chat model binding for chat $chatId", e)
                 throw e
             }
         }

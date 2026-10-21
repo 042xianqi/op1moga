@@ -520,6 +520,21 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
                     !it.memoryProfileId.isNullOrBlank()
             }
             ?.memoryProfileId
+
+    // op1moga: 当前会话的模型绑定（会话级最高优先，null = 未绑定）
+    val activeChatHistory = chatHistories.firstOrNull { it.id == currentChatId }
+    val chatBoundModelConfigId = activeChatHistory?.chatModelConfigId?.takeIf { it.isNotBlank() }
+    val chatBoundModelIndex = activeChatHistory?.chatModelIndex ?: 0
+    val onChatModelBindingChange: (String?, Int) -> Unit = { configId, modelIndex ->
+        val targetChatId = currentChatId
+        if (!targetChatId.isNullOrBlank()) {
+            if (configId.isNullOrBlank()) {
+                actualViewModel.clearChatModelBinding(targetChatId)
+            } else {
+                actualViewModel.setChatModelBinding(targetChatId, configId, modelIndex)
+            }
+        }
+    }
     
 
 
@@ -1068,7 +1083,10 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
                                     },
                                     characterCardBoundChatModelConfigId = characterCardBoundChatModelConfigId,
                                     characterCardBoundChatModelIndex = characterCardBoundChatModelIndex,
-                                    characterCardBoundMemoryProfileId = characterCardBoundMemoryProfileId
+                                    characterCardBoundMemoryProfileId = characterCardBoundMemoryProfileId,
+                                    chatBoundModelConfigId = chatBoundModelConfigId,
+                                    chatBoundModelIndex = chatBoundModelIndex,
+                                    onChatModelBindingChange = onChatModelBindingChange
                             )
                         }
                     }

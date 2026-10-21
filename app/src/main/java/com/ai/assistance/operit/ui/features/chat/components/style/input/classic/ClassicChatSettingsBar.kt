@@ -129,7 +129,11 @@ fun ClassicChatSettingsBar(
     onManualMemoryUpdate: () -> Unit,
     characterCardBoundChatModelConfigId: String? = null,
     characterCardBoundChatModelIndex: Int = 0,
-    characterCardBoundMemoryProfileId: String? = null
+    characterCardBoundMemoryProfileId: String? = null,
+    // op1moga: 会话级模型绑定（优先级高于角色卡绑定；null 表示未绑定）
+    chatBoundModelConfigId: String? = null,
+    chatBoundModelIndex: Int = 0,
+    onChatModelBindingChange: ((String?, Int) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val iconScale by
@@ -166,15 +170,23 @@ fun ClassicChatSettingsBar(
             configMappingWithIndex[FunctionType.CHAT] ?: FunctionConfigMapping(FunctionalConfigManager.DEFAULT_CONFIG_ID, 0)
     val isModelSelectionLockedByCharacterCard = !characterCardBoundChatModelConfigId.isNullOrBlank()
     val isMemorySelectionLockedByCharacterCard = !characterCardBoundMemoryProfileId.isNullOrBlank()
+    // op1moga: 会话绑定优先于角色卡绑定
+    val isModelSelectionLockedByChat = !chatBoundModelConfigId.isNullOrBlank()
     val effectiveCurrentConfigMapping =
-            if (isModelSelectionLockedByCharacterCard) {
-                FunctionConfigMapping(
-                        characterCardBoundChatModelConfigId
-                                ?: FunctionalConfigManager.DEFAULT_CONFIG_ID,
-                        characterCardBoundChatModelIndex.coerceAtLeast(0)
-                )
-            } else {
-                currentConfigMapping
+            when {
+                isModelSelectionLockedByChat ->
+                        FunctionConfigMapping(
+                                chatBoundModelConfigId
+                                        ?: FunctionalConfigManager.DEFAULT_CONFIG_ID,
+                                chatBoundModelIndex.coerceAtLeast(0)
+                        )
+                isModelSelectionLockedByCharacterCard ->
+                        FunctionConfigMapping(
+                                characterCardBoundChatModelConfigId
+                                        ?: FunctionalConfigManager.DEFAULT_CONFIG_ID,
+                                characterCardBoundChatModelIndex.coerceAtLeast(0)
+                        )
+                else -> currentConfigMapping
             }
     
     // 获取上下文长度设置，用于显示在 MaxMode 描述中
@@ -276,7 +288,21 @@ fun ClassicChatSettingsBar(
     }
 
     val onSelectModel: (String, Int) -> Unit = { selectedId, modelIndex ->
-        if (isModelSelectionLockedByCharacterCard) {
+        if (isModelSelectionLockedByChat) {
+            // op1moga: 已绑定会话模型时，在当前会话内切换模型
+            val currentModelIndex =
+                configSummaries.find { it.id == effectiveCurrentConfigMapping.configId }?.let { config ->
+                    getValidModelIndex(config.modelName, effectiveCurrentConfigMapping.modelIndex)
+                } ?: effectiveCurrentConfigMapping.modelIndex.coerceAtLeast(0)
+            val isSameSelection =
+                selectedId == effectiveCurrentConfigMapping.configId && modelIndex == currentModelIndex
+            if (isSameSelection) {
+                showModelDropdown = false
+            } else {
+                onChatModelBindingChange?.invoke(selectedId, modelIndex)
+                showModelDropdown = false
+            }
+        } else if (isModelSelectionLockedByCharacterCard) {
             val currentModelIndex =
                 configSummaries.find { it.id == effectiveCurrentConfigMapping.configId }?.let { config ->
                     getValidModelIndex(config.modelName, effectiveCurrentConfigMapping.modelIndex)
@@ -577,6 +603,44 @@ fun ClassicChatSettingsBar(
                                         showMenu = false
                                     }
                             )
+                            // op1moga: 会话级模型绑定开关
+                            if (onChatModelBindingChange != null && !currentChatId.isNullOrBlank()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "仅本会话使用",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = if (isModelSelectionLockedByChat)
+                                                "已绑定：切换模型只影响当前对话"
+                                            else
+                                                "开启后，切换模型只影响当前对话，不影响其它对话",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = isModelSelectionLockedByChat,
+                                        onCheckedChange = { checked ->
+                                            if (checked) {
+                                                onChatModelBindingChange.invoke(
+                                                    effectiveCurrentConfigMapping.configId,
+                                                    effectiveCurrentConfigMapping.modelIndex
+                                                )
+                                            } else {
+                                                onChatModelBindingChange.invoke(null, 0)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                             inputMenuTogglesBySlot[InputMenuToggleSlots.MODEL].orEmpty().forEach { toggle ->
                                 InputMenuToggleSettingItem(
                                     toggle = toggle,

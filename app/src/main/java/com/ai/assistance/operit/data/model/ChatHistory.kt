@@ -25,5 +25,9 @@ data class ChatHistory(
     val characterCardName: String? = null,
     val characterGroupId: String? = null,
     val locked: Boolean = false,
-    val pinned: Boolean = false
+    val pinned: Boolean = false,
+    /** op1moga: 本会话绑定的模型配置 ID；null = 跟随全局 / 角色卡 */
+    val chatModelConfigId: String? = null,
+    /** op1moga: 绑定的配置内模型下标（一个配置含多模型时用） */
+    val chatModelIndex: Int? = null
 )

@@ -2463,6 +2463,32 @@ class ChatViewModel(private val context: Context) : ViewModel() {
         chatHistoryDelegate.updateChatTitle(chatId, newTitle)
     }
 
+    /**
+     * op1moga: 设置指定会话的模型绑定。
+     *
+     * [chatModelConfigId] 传 null 表示解绑，回落到 角色卡绑定 / 全局配置。
+     * 写入后立刻刷新服务，使下一条消息就用新模型。
+     */
+    fun setChatModelBinding(
+        chatId: String,
+        chatModelConfigId: String?,
+        chatModelIndex: Int? = null
+    ) {
+        chatHistoryDelegate.setChatModelBinding(chatId, chatModelConfigId, chatModelIndex)
+        viewModelScope.launch {
+            runCatching {
+                EnhancedAIService.refreshServiceForFunction(context, FunctionType.CHAT)
+            }.onFailure { e ->
+                AppLogger.w(TAG, "刷新会话模型服务失败: chatId=$chatId", e)
+            }
+        }
+    }
+
+    /** op1moga: 清除会话级模型绑定，回到全局 / 角色卡 */
+    fun clearChatModelBinding(chatId: String) {
+        setChatModelBinding(chatId, null, null)
+    }
+
     /** 更新指定聊天绑定的角色卡 */
     fun updateChatCharacterCardBinding(chatId: String, characterCardName: String?) {
         chatHistoryDelegate.updateChatCharacterCard(chatId, characterCardName)

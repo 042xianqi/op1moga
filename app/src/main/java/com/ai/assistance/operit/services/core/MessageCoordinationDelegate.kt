@@ -432,8 +432,15 @@ class MessageCoordinationDelegate(
                 .getOrDefault(targetMessage.roleName)
                 .ifBlank { targetMessage.roleName }
 
+        // op1moga: 重生成时同样优先使用会话级模型绑定
+        val chatBoundModelConfigId = currentChat?.chatModelConfigId?.takeIf { it.isNotBlank() }
+        val chatBoundModelIndex = currentChat?.chatModelIndex
         val (resolvedChatModelConfigIdOverride, resolvedChatModelIndexOverride) =
-            resolveRoleCardChatModelOverrides(roleCardId)
+            if (chatBoundModelConfigId != null) {
+                Pair(chatBoundModelConfigId, (chatBoundModelIndex ?: 0).coerceAtLeast(0))
+            } else {
+                resolveRoleCardChatModelOverrides(roleCardId)
+            }
         val resolvedMemorySpaceIdOverride =
             resolveRoleCardMemoryProfileOverride(roleCardId)
         val chatContextSettings =
@@ -622,6 +629,9 @@ class MessageCoordinationDelegate(
                 preferActiveRoleCard = preferActiveRoleCard,
             )
         }
+        // op1moga: 会话级模型绑定（优先级：本次显式传参 > 会话绑定 > 角色卡绑定 > 全局配置）
+        val chatBoundModelConfigId = currentChat?.chatModelConfigId?.takeIf { it.isNotBlank() }
+        val chatBoundModelIndex = currentChat?.chatModelIndex
         val resolvedOverrides = try {
             if (promptFunctionType == PromptFunctionType.CHAT) {
                 val (resolvedChatModelConfigIdOverride, resolvedChatModelIndexOverride) =
@@ -631,6 +641,9 @@ class MessageCoordinationDelegate(
                         }
                         isAutoContinuation -> {
                             Pair(currentChatModelConfigIdOverride, currentChatModelIndexOverride)
+                        }
+                        chatBoundModelConfigId != null -> {
+                            Pair(chatBoundModelConfigId, (chatBoundModelIndex ?: 0).coerceAtLeast(0))
                         }
                         else -> {
                             resolveRoleCardChatModelOverrides(roleCardId)

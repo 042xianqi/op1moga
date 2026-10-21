@@ -1337,6 +1337,46 @@ class ChatHistoryDelegate(
         }
     }
 
+    /**
+     * op1moga: 设置本会话绑定的模型配置。
+     *
+     * [chatModelConfigId] 传 null 表示解绑，回落到 角色卡绑定 / 全局配置。
+     * 同时刷新 [_chatHistories]，让标题栏模型名立刻变化，不必等到下一条消息。
+     */
+    fun setChatModelBinding(
+        chatId: String,
+        chatModelConfigId: String?,
+        chatModelIndex: Int? = null
+    ) {
+        coroutineScope.launch {
+            val normalizedConfigId = chatModelConfigId?.takeIf { it.isNotBlank() }
+            val normalizedIndex = if (normalizedConfigId == null) null else (chatModelIndex ?: 0)
+            runCatching {
+                chatHistoryManager.updateChatModelBinding(
+                    chatId = chatId,
+                    chatModelConfigId = normalizedConfigId,
+                    chatModelIndex = normalizedIndex
+                )
+            }.onFailure { e ->
+                AppLogger.e(TAG, "设置会话模型绑定失败: chatId=$chatId", e)
+                return@launch
+            }
+
+            _chatHistories.value =
+                _chatHistories.value.map {
+                    if (it.id == chatId) {
+                        it.copy(
+                            chatModelConfigId = normalizedConfigId,
+                            chatModelIndex = normalizedIndex,
+                            updatedAt = LocalDateTime.now()
+                        )
+                    } else {
+                        it
+                    }
+                }
+        }
+    }
+
     suspend fun renameWorkspaceAndChat(
         chatId: String,
         newWorkspaceName: String

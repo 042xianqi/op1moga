@@ -99,6 +99,20 @@ interface ChatDao {
     @Query("UPDATE chats SET pinned = :pinned, updatedAt = :timestamp WHERE id = :chatId")
     suspend fun updateChatPinned(chatId: String, pinned: Boolean, timestamp: Long = System.currentTimeMillis())
 
+    /**
+     * op1moga: 更新会话级模型绑定。
+     * [chatModelConfigId] / [chatModelIndex] 传 null 表示跟随全局 / 角色卡。
+     */
+    @Query(
+        "UPDATE chats SET chatModelConfigId = :chatModelConfigId, chatModelIndex = :chatModelIndex, updatedAt = :timestamp WHERE id = :chatId"
+    )
+    suspend fun updateChatModelBinding(
+        chatId: String,
+        chatModelConfigId: String?,
+        chatModelIndex: Int?,
+        timestamp: Long = System.currentTimeMillis()
+    )
+
     /** 更新单个聊天的顺序和分组 */
     @Query("UPDATE chats SET displayOrder = :displayOrder, `group` = :group, updatedAt = :timestamp WHERE id = :chatId")
     suspend fun updateChatOrderAndGroup(chatId: String, displayOrder: Long, group: String?, timestamp: Long = System.currentTimeMillis())

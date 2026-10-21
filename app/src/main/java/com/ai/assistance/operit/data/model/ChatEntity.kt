@@ -24,7 +24,11 @@ data class ChatEntity(
         val characterCardName: String? = null,
         val characterGroupId: String? = null,
         val locked: Boolean = false,
-        val pinned: Boolean = false
+        val pinned: Boolean = false,
+        /** op1moga: 本会话绑定的模型配置 ID；null = 跟随全局 / 角色卡 */
+        val chatModelConfigId: String? = null,
+        /** op1moga: 绑定的配置内模型下标（一个配置含多模型时用） */
+        val chatModelIndex: Int? = null
 ) {
     /** 转换为ChatHistory对象（供UI层使用） */
     fun toChatHistory(messages: List<ChatMessage>): ChatHistory {
@@ -53,7 +57,9 @@ data class ChatEntity(
                 characterCardName = characterCardName,
                 characterGroupId = characterGroupId,
                 locked = locked,
-                pinned = pinned
+                pinned = pinned,
+                chatModelConfigId = chatModelConfigId,
+                chatModelIndex = chatModelIndex
         )
     }
 
@@ -87,7 +93,9 @@ data class ChatEntity(
                     characterCardName = chatHistory.characterCardName,
                     characterGroupId = chatHistory.characterGroupId,
                     locked = chatHistory.locked,
-                    pinned = chatHistory.pinned
+                    pinned = chatHistory.pinned,
+                    chatModelConfigId = chatHistory.chatModelConfigId,
+                    chatModelIndex = chatHistory.chatModelIndex
             )
         }
     }
