@@ -7,11 +7,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.ai.assistance.operit.data.dao.AgentContextDao
 import com.ai.assistance.operit.data.dao.ChatContentDao
 import com.ai.assistance.operit.data.dao.ChatDao
 import com.ai.assistance.operit.data.dao.MessageDao
 import com.ai.assistance.operit.data.dao.MessageVariantDao
 import com.ai.assistance.operit.data.dao.TokenUsageDao
+import com.ai.assistance.operit.data.model.AgentMemoryEntity
+import com.ai.assistance.operit.data.model.AgentPlanEntity
+import com.ai.assistance.operit.data.model.AgentScratchpadEntity
 import com.ai.assistance.operit.data.model.ChatEntity
 import com.ai.assistance.operit.data.model.MessageEntity
 import com.ai.assistance.operit.data.model.MessageVariantEntity
@@ -21,7 +25,7 @@ import com.ai.assistance.operit.util.AppLogger
 import java.io.File
 import java.util.UUID
 
-private const val APP_DATABASE_VERSION = 22
+private const val APP_DATABASE_VERSION = 23
 
 /** 应用数据库，包含聊天表和消息表 */
 @Database(
@@ -31,6 +35,10 @@ private const val APP_DATABASE_VERSION = 22
         MessageVariantEntity::class,
         TokenUsageRecordEntity::class,
         TokenStatsModelEntity::class,
+        // op1moga: Agent 上下文三件套（memory / plan / scratchpad）
+        AgentMemoryEntity::class,
+        AgentPlanEntity::class,
+        AgentScratchpadEntity::class,
     ],
     version = APP_DATABASE_VERSION,
     exportSchema = false
@@ -44,6 +52,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageVariantDao(): MessageVariantDao
     abstract fun chatContentDao(): ChatContentDao
     abstract fun tokenUsageDao(): TokenUsageDao
+
+    /** op1moga: Agent 上下文三件套（memory / plan / scratchpad） */
+    abstract fun agentContextDao(): AgentContextDao
 
     companion object {
         const val DATABASE_VERSION = APP_DATABASE_VERSION
@@ -365,6 +376,74 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        /**
+         * v22 -> v23 (op1moga): Agent 上下文三件套（对齐太墟 AgentContextEntities）。
+         *
+         * 新增三张独立表，与既有 chats/messages 表零耦合，
+         * 旧数据完全不受影响（新表初始为空）。
+         */
+        internal val MIGRATION_22_23 =
+            object : Migration(22, 23) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `agent_memories` (
+                            `id` TEXT NOT NULL,
+                            `scope` TEXT NOT NULL,
+                            `ownerId` TEXT NOT NULL DEFAULT '',
+                            `kind` TEXT NOT NULL,
+                            `key` TEXT NOT NULL,
+                            `value` TEXT NOT NULL,
+                            `subjectKey` TEXT NOT NULL DEFAULT '',
+                            `revision` INTEGER NOT NULL DEFAULT 1,
+                            `pinned` INTEGER NOT NULL DEFAULT 0,
+                            `expiresAt` INTEGER,
+                            `lastVerifiedAt` INTEGER NOT NULL DEFAULT 0,
+                            `volatility` TEXT NOT NULL DEFAULT 'reference',
+                            `createdAt` INTEGER NOT NULL,
+                            `updatedAt` INTEGER NOT NULL,
+                            PRIMARY KEY(`id`)
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_agent_memories_scope_ownerId_key` ON `agent_memories` (`scope`, `ownerId`, `key`)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_agent_memories_scope_ownerId_subjectKey` ON `agent_memories` (`scope`, `ownerId`, `subjectKey`)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_agent_memories_pinned` ON `agent_memories` (`pinned`)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_agent_memories_expiresAt` ON `agent_memories` (`expiresAt`)"
+                    )
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `agent_plans` (
+                            `sessionId` TEXT NOT NULL,
+                            `goal` TEXT NOT NULL,
+                            `stepsJson` TEXT NOT NULL,
+                            `status` TEXT NOT NULL,
+                            `updatedAt` INTEGER NOT NULL,
+                            PRIMARY KEY(`sessionId`)
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `agent_scratchpads` (
+                            `sessionId` TEXT NOT NULL,
+                            `key` TEXT NOT NULL,
+                            `value` TEXT NOT NULL,
+                            `updatedAt` INTEGER NOT NULL,
+                            PRIMARY KEY(`sessionId`, `key`)
+                        )
+                        """.trimIndent()
+                    )
+                }
+            }
+
         // 定义从版本2到3的迁移
         private val MIGRATION_2_3 =
             object : Migration(2, 3) {
@@ -548,7 +627,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_18_19,
                     MIGRATION_19_20,
                     MIGRATION_20_21,
-                    MIGRATION_21_22
+                    MIGRATION_21_22,
+                    MIGRATION_22_23
                 )
                 .build()
 

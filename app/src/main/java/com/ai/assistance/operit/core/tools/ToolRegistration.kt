@@ -17,6 +17,7 @@ import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.ai.assistance.operit.util.LocaleUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -2740,6 +2741,94 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
             executor = { tool ->
                 val ffmpegConvertTool = ToolGetter.getFFmpegConvertToolExecutor(context)
                 ffmpegConvertTool.invoke(tool)
+            }
+    )
+
+    // ===== op1moga: Agent 上下文三件套（对齐太墟 memory / plan / scratchpad）=====
+    val agentContextExecutor =
+        com.ai.assistance.operit.core.tools.agentcontext.AgentContextExecutor(context)
+
+    /**
+     * 取当前会话 chatId 与工作区。
+     * 太墟用 sessionId，Op1 用 chatId，语义等价。
+     */
+    suspend fun resolveAgentContextScope(): Pair<String, String> {
+        val manager =
+            com.ai.assistance.operit.data.repository.ChatHistoryManager.getInstance(context)
+        val chatId = manager.currentChatIdFlow.first() ?: ""
+        val workspace =
+            if (chatId.isNotBlank()) {
+                manager.chatHistoriesFlow.first().find { it.id == chatId }?.workspace.orEmpty()
+            } else {
+                ""
+            }
+        return chatId to workspace
+    }
+
+    // 长期事实记忆
+    handler.registerTool(
+            name = "memory",
+            descriptionGenerator = { tool ->
+                val action = tool.parameters.find { it.name == "action" }?.value ?: "list"
+                val key = tool.parameters.find { it.name == "key" }?.value
+                if (key.isNullOrBlank()) "长期记忆：$action" else "长期记忆：$action $key"
+            },
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    val (chatId, workspace) = resolveAgentContextScope()
+                    val (ok, message) =
+                        agentContextExecutor.executeMemory(tool, chatId, workspace)
+                    ToolResult(
+                        toolName = tool.name,
+                        success = ok,
+                        result = StringResultData(message),
+                        error = if (ok) null else message
+                    )
+                }
+            }
+    )
+
+    // 任务执行规划
+    handler.registerTool(
+            name = "plan",
+            descriptionGenerator = { tool ->
+                val action = tool.parameters.find { it.name == "action" }?.value ?: "get"
+                val goal = tool.parameters.find { it.name == "goal" }?.value
+                if (goal.isNullOrBlank()) "任务规划：$action" else "任务规划：$action（$goal）"
+            },
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    val (chatId, _) = resolveAgentContextScope()
+                    val (ok, message) = agentContextExecutor.executePlan(tool, chatId)
+                    ToolResult(
+                        toolName = tool.name,
+                        success = ok,
+                        result = StringResultData(message),
+                        error = if (ok) null else message
+                    )
+                }
+            }
+    )
+
+    // 工作草稿便签
+    handler.registerTool(
+            name = "scratchpad",
+            descriptionGenerator = { tool ->
+                val action = tool.parameters.find { it.name == "action" }?.value ?: "list"
+                val key = tool.parameters.find { it.name == "key" }?.value
+                if (key.isNullOrBlank()) "工作便签：$action" else "工作便签：$action $key"
+            },
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    val (chatId, _) = resolveAgentContextScope()
+                    val (ok, message) = agentContextExecutor.executeScratchpad(tool, chatId)
+                    ToolResult(
+                        toolName = tool.name,
+                        success = ok,
+                        result = StringResultData(message),
+                        error = if (ok) null else message
+                    )
+                }
             }
     )
 }
