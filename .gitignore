@@ -95,3 +95,6 @@ temp
 /op1moga_out/
 /local-build/
 .taixu-outputs/
+
+# op1moga: 固定的构建签名（有意入库，保证 CI 每次构建签名一致、可覆盖安装）
+!keystore/op1moga-release.jks

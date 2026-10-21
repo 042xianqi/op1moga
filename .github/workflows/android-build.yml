@@ -235,7 +235,8 @@ jobs:
         if: success()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: operit-android-${{ github.run_number }}
+          # op1moga: 产物名带版本号与构建号，便于下载后直接辨认
+          name: Operit-AI-魔改-v1.12.2-moga-build${{ github.run_number }}
           path: |
             app/build/outputs/apk/**/*.apk
             app/build/outputs/bundle/**/*.aab

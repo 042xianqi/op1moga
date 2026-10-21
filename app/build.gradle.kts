@@ -378,6 +378,19 @@ android {
     }
 
     signingConfigs {
+        // op1moga: 固定签名（入库的 keystore/op1moga-release.jks）
+        // 目的：CI 每次构建的签名保持一致，可直接覆盖安装，无需卸载。
+        // 注意：CI 的 debug.keystore 是每次新生成的，会导致签名漂移（已踩坑）。
+        val op1mogaKeystore = rootProject.file("keystore/op1moga-release.jks")
+        if (op1mogaKeystore.exists()) {
+            create("op1moga") {
+                storeFile = op1mogaKeystore
+                storePassword = "op1moga2026"
+                keyAlias = "op1moga"
+                keyPassword = "op1moga2026"
+            }
+        }
+
         val releaseKeystorePath = localProperties.getProperty("RELEASE_STORE_FILE")
         val releaseStorePassword = localProperties.getProperty("RELEASE_STORE_PASSWORD")
         val releaseKeyAlias = localProperties.getProperty("RELEASE_KEY_ALIAS")
@@ -408,7 +421,7 @@ android {
         applicationId = "com.ai.assistance.operit"
         minSdk = 26
         targetSdk = 34
-        versionCode = 51
+        versionCode = 52
         versionName = "1.12.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -451,12 +464,17 @@ android {
         create("clone") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".clone"
-            if (releaseSigningConfig != null) {
-                signingConfig = releaseSigningConfig
-            }
+            // op1moga: 优先用固定签名，保证每次构建签名一致、可覆盖安装
+            val op1mogaSigning = signingConfigs.findByName("op1moga")
+            signingConfig =
+                op1mogaSigning
+                    ?: releaseSigningConfig
+                    ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("debug")
             // op1moga: 「魔改版」标识，与官方版共存安装
             resValue("string", "app_name", "Operit AI 魔改")
+            // op1moga: 版本号带后缀，便于在下载文件名与系统信息里区分
+            versionNameSuffix = "-moga"
         }
         create("nightly") {
             isMinifyEnabled = false
