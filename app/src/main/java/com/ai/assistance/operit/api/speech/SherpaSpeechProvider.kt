@@ -11,6 +11,7 @@ import com.k2fsa.sherpa.ncnn.*
 import com.ai.assistance.operit.api.speech.SpeechPrerollStore
 import java.io.File
 import com.ai.assistance.operit.util.AssetCopyUtils
+import com.ai.assistance.operit.util.HttpMultiPartDownloader
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,26 @@ import kotlin.math.max
 class SherpaSpeechProvider(private val context: Context) : SpeechService {
     companion object {
         private const val TAG = "SherpaSpeechProvider"
+
+        // op1moga: STT 模型改为联网下载，不再打包进 APK（省约 136MB）
+        /** 模型文件清单（与 sherpa-ncnn 模型目录内容一致） */
+        private val MODEL_FILE_NAMES =
+                listOf(
+                        "encoder_jit_trace-pnnx.ncnn.param",
+                        "encoder_jit_trace-pnnx.ncnn.bin",
+                        "decoder_jit_trace-pnnx.ncnn.param",
+                        "decoder_jit_trace-pnnx.ncnn.bin",
+                        "joiner_jit_trace-pnnx.ncnn.param",
+                        "joiner_jit_trace-pnnx.ncnn.bin",
+                        "tokens.txt"
+                )
+
+        /** HuggingFace 仓库路径 */
+        private const val MODEL_REPO_PATH =
+                "csukuangfj/sherpa-ncnn-streaming-zipformer-bilingual-zh-en-2023-02-13/resolve/main"
+
+        /** 镜像优先，官方兜底 */
+        private val MODEL_BASE_URLS = listOf("https://hf-mirror.com", "https://huggingface.co")
     }
 
     private var recognizer: SherpaNcnn? = null
@@ -130,15 +151,21 @@ class SherpaSpeechProvider(private val context: Context) : SpeechService {
         val localModelDir: File
         try {
             val modelDirName = "sherpa-ncnn-streaming-zipformer-bilingual-zh-en-2023-02-13"
-            val assetModelDir = "models/$modelDirName"
             val targetDir = File(OperitPaths.sherpaNcnnModelsDir(context), modelDirName)
-            localModelDir = AssetCopyUtils.copyAssetDirRecursive(
-                context,
-                assetModelDir,
-                targetDir
-            )
-        } catch (e: IOException) {
-            AppLogger.e(TAG, "Failed to copy model assets.", e)
+            // op1moga: 模型不再内置进 APK（省 ~136MB），改为首次使用时联网下载。
+            // 若本地已具备完整文件则直接复用，避免重复下载。
+            localModelDir =
+                if (hasCompleteModelFiles(targetDir)) {
+                    AppLogger.d(TAG, "STT model already present locally: ${targetDir.absolutePath}")
+                    targetDir
+                } else {
+                    AppLogger.d(TAG, "STT model missing, starting network download...")
+                    _recognitionState.value = SpeechService.RecognitionState.INITIALIZING
+                    downloadModelFiles(targetDir)
+                    targetDir
+                }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Failed to prepare STT model files.", e)
             _recognitionState.value = SpeechService.RecognitionState.ERROR
             _recognitionError.value =
                     SpeechService.RecognitionError(-1, "Failed to prepare model files.")
@@ -547,5 +574,77 @@ class SherpaSpeechProvider(private val context: Context) : SpeechService {
                     )
             _recognitionState.value = SpeechService.RecognitionState.ERROR
         }
+    }
+
+    // ==================== op1moga: STT 模型按需下载 ====================
+
+    /**
+     * op1moga: 判断本地是否已具备完整模型文件。
+     *
+     * 五个文件缺任意一个都视为不完整（可能是上次下载中断留下的残缺文件），
+     * 需要重新下载。
+     */
+    private fun hasCompleteModelFiles(dir: File): Boolean =
+            dir.isDirectory &&
+                    MODEL_FILE_NAMES.all { name ->
+                        val f = File(dir, name)
+                        f.isFile && f.length() > 0L
+                    }
+
+    /**
+     * op1moga: 联网下载 STT 模型文件（替代原先打包进 APK 的 assets）。
+     *
+     * 逐个文件下载，任一失败抛 [IOException]，由调用方统一降级为 ERROR 状态。
+     * 下载完成后逐个校验非空，避免残缺文件被当作可用。
+     */
+    private fun downloadModelFiles(targetDir: File) {
+        if (!targetDir.exists() && !targetDir.mkdirs()) {
+            throw IOException("Cannot create model directory: ${targetDir.absolutePath}")
+        }
+
+        MODEL_FILE_NAMES.forEachIndexed { index, fileName ->
+            val dest = File(targetDir, fileName)
+            // 已存在且非空则跳过（支持断点续传后的续用）
+            if (dest.isFile && dest.length() > 0L) {
+                AppLogger.d(TAG, "[$index/${MODEL_FILE_NAMES.size}] skip existing: $fileName")
+                return@forEachIndexed
+            }
+
+            var lastError: Exception? = null
+            var succeeded = false
+            for (baseUrl in MODEL_BASE_URLS) {
+                val partFile = File(targetDir, "$fileName.part")
+                try {
+                    AppLogger.d(TAG, "[$index/${MODEL_FILE_NAMES.size}] downloading $fileName from $baseUrl")
+                    HttpMultiPartDownloader.download(
+                            url = "$baseUrl/$MODEL_REPO_PATH/$fileName",
+                            dest = partFile,
+                            threadCount = 4
+                    )
+                    if (!partFile.isFile || partFile.length() <= 0L) {
+                        throw IOException("Downloaded file is empty: $fileName")
+                    }
+                    if (dest.exists()) dest.delete()
+                    if (!partFile.renameTo(dest)) {
+                        throw IOException("Cannot move downloaded file into place: $fileName")
+                    }
+                    succeeded = true
+                    break
+                } catch (e: Exception) {
+                    lastError = e
+                    AppLogger.w(TAG, "Failed from $baseUrl: ${e.message}")
+                    partFile.delete()
+                }
+            }
+
+            if (!succeeded) {
+                throw IOException(
+                        "Failed to download STT model file: $fileName",
+                        lastError
+                )
+            }
+        }
+
+        AppLogger.i(TAG, "STT model download completed: ${targetDir.absolutePath}")
     }
 }

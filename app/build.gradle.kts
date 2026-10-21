@@ -290,9 +290,20 @@ val sttModelAssetsManifestFile = layout.projectDirectory.file("config/stt-model-
 val generatedSttModelAssetsDir = layout.buildDirectory.dir("generated/stt-model-assets")
 val generatedMainAssetsDir = layout.buildDirectory.dir("generated/main-assets")
 
+/**
+ * op1moga: 是否把 STT 模型打包进 APK。
+ *
+ * 语音模型（约 136MB）占包体近三分之一。默认改为不打包，
+ * 由 SherpaSpeechProvider 在首次使用语音输入时联网下载到 filesDir。
+ * 若确实需要内置（离线场景），构建时加 -Poperit.bundleSttModels=true 即可恢复。
+ */
+val bundleSttModels: Boolean =
+        (project.findProperty("operit.bundleSttModels") as String?)?.toBoolean() ?: false
+
 val syncSttModelAssets by tasks.registering {
     description = "Downloads and verifies generated assets for local STT recognition."
     group = "build setup"
+    enabled = bundleSttModels
 
     inputs.file(sttModelAssetsManifestFile)
     outputs.dir(generatedSttModelAssetsDir)
@@ -444,7 +455,8 @@ android {
                 signingConfig = releaseSigningConfig
             }
             matchingFallbacks += listOf("debug")
-            resValue("string", "app_name", "Operit Clone")
+            // op1moga: 「魔改版」标识，与官方版共存安装
+            resValue("string", "app_name", "Operit AI 魔改")
         }
         create("nightly") {
             isMinifyEnabled = false

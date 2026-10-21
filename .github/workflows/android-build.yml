@@ -208,7 +208,8 @@ jobs:
         run: |
           set -euo pipefail
           case "$EVENT_NAME" in
-            push) gradle_task=assembleDebug ;;
+            # op1moga: 默认出「魔改版」共存包（com.ai.assistance.operit.clone，可与官方版并存）
+            push) gradle_task=assembleClone ;;
             workflow_dispatch) gradle_task="$DISPATCH_GRADLE_TASK" ;;
             *) echo "Unsupported workflow event: $EVENT_NAME" >&2; exit 2 ;;
           esac
