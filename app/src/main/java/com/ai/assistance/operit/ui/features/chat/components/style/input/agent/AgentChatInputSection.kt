@@ -48,6 +48,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -369,8 +370,20 @@ fun AgentChatInputSection(
             ?: FunctionConfigMapping(FunctionalConfigManager.DEFAULT_CONFIG_ID, 0)
     val isModelSelectionLockedByCharacterCard = !characterCardBoundChatModelConfigId.isNullOrBlank()
     val isMemorySelectionLockedByCharacterCard = !characterCardBoundMemoryProfileId.isNullOrBlank()
+    // op1moga: 会话级模型绑定（优先级最高，压过角色卡与全局）
+    val activeChatBinding =
+        (actualViewModel.chatHistories.collectAsState().value)
+            .firstOrNull { it.id == currentChatId }
+    val chatBoundModelConfigId = activeChatBinding?.chatModelConfigId?.takeIf { it.isNotBlank() }
+    val chatBoundModelIndex = activeChatBinding?.chatModelIndex ?: 0
+    val isModelSelectionLockedByChat = chatBoundModelConfigId != null
     val effectiveConfigMapping =
-        if (isModelSelectionLockedByCharacterCard) {
+        if (isModelSelectionLockedByChat) {
+            FunctionConfigMapping(
+                chatBoundModelConfigId ?: FunctionalConfigManager.DEFAULT_CONFIG_ID,
+                chatBoundModelIndex.coerceAtLeast(0),
+            )
+        } else if (isModelSelectionLockedByCharacterCard) {
             FunctionConfigMapping(
                 characterCardBoundChatModelConfigId ?: FunctionalConfigManager.DEFAULT_CONFIG_ID,
                 characterCardBoundChatModelIndex.coerceAtLeast(0),
@@ -539,7 +552,14 @@ fun AgentChatInputSection(
         }
 
     val onSelectModel: (String, Int) -> Unit = { selectedId, modelIndex ->
-        if (isModelSelectionLockedByCharacterCard) {
+        if (isModelSelectionLockedByChat) {
+            // op1moga: 已绑定会话模型 → 切换只改本会话
+            val targetChatId = currentChatId
+            if (!targetChatId.isNullOrBlank()) {
+                actualViewModel.setChatModelBinding(targetChatId, selectedId, modelIndex)
+            }
+            showModelSelectorPopup.value = false
+        } else if (isModelSelectionLockedByCharacterCard) {
             val currentModelIndex = configSummaries.find { it.id == effectiveConfigMapping.configId }?.let { config ->
                 getValidModelIndex(config.modelName, effectiveConfigMapping.modelIndex)
             } ?: effectiveConfigMapping.modelIndex.coerceAtLeast(0)
@@ -1412,6 +1432,23 @@ fun AgentChatInputSection(
                     onNavigateToModelConfig()
                 },
                 onDismiss = { showModelSelectorPopup.value = false },
+                chatBoundModelConfigId = chatBoundModelConfigId,
+                onToggleChatModelBinding = { enable ->
+                    val targetChatId = currentChatId
+                    if (!targetChatId.isNullOrBlank()) {
+                        if (enable) {
+                            // 开启：把当前生效的模型固化成本会话绑定
+                            actualViewModel.setChatModelBinding(
+                                targetChatId,
+                                effectiveConfigMapping.configId,
+                                effectiveConfigMapping.modelIndex,
+                            )
+                        } else {
+                            // 关闭：清除绑定，回落到角色卡 / 全局
+                            actualViewModel.clearChatModelBinding(targetChatId)
+                        }
+                    }
+                },
             )
 
             AgentExtraSettingsPopup(
@@ -1496,6 +1533,9 @@ private fun AgentModelSelectorPopup(
     onSelectModel: (String, Int) -> Unit,
     onManageModels: () -> Unit,
     onDismiss: () -> Unit,
+    // op1moga: 会话级模型绑定（默认值保持兼容，未传时行为不变）
+    chatBoundModelConfigId: String? = null,
+    onToggleChatModelBinding: ((Boolean) -> Unit)? = null,
 ) {
     if (!visible) return
 
@@ -2039,6 +2079,35 @@ private fun AgentModelSelectorItem(
                     .background(popupContainerColor)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
+            // op1moga: 会话级模型绑定开关（开启后本会话独立使用所选模型）
+            if (onToggleChatModelBinding != null && !currentChatId.isNullOrBlank()) {
+                val bindingEnabled = chatBoundModelConfigId != null
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "仅本会话使用",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "开启后切换模型只影响当前对话",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = bindingEnabled,
+                        onCheckedChange = { onToggleChatModelBinding.invoke(it) },
+                    )
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
             if (configSummaries.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_models_available),
