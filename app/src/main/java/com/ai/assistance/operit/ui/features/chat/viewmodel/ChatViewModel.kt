@@ -696,6 +696,25 @@ class ChatViewModel(private val context: Context) : ViewModel() {
         chatHistoryDelegate.createNewChat(characterCardName = characterCardName, characterGroupId = characterGroupId)
     }
 
+    /**
+     * op1moga: 新建一个会话并把指定模型绑定到它。
+     *
+     * 用于「全新安装尚无任何会话」时开启会话级模型绑定的场景：
+     * 先建会话，等 currentChatId 真正切换过去，再写入绑定。
+     */
+    fun createNewChatAndBindModel(chatModelConfigId: String, chatModelIndex: Int = 0) {
+        if (chatModelConfigId.isBlank()) return
+        viewModelScope.launch {
+            val previousChatId = chatHistoryDelegate.currentChatId.value
+            chatHistoryDelegate.createNewChat()
+            val newChatId =
+                chatHistoryDelegate.currentChatId
+                    .filter { chatId -> !chatId.isNullOrBlank() && chatId != previousChatId }
+                    .first()
+            chatHistoryDelegate.setChatModelBinding(newChatId, chatModelConfigId, chatModelIndex)
+        }
+    }
+
     fun createNewChatWithDraft(draft: String) {
         val trimmedDraft = draft.trim()
         if (trimmedDraft.isBlank()) return

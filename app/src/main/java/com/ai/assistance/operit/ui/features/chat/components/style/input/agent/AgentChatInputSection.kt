@@ -1447,6 +1447,13 @@ fun AgentChatInputSection(
                             // 关闭：清除绑定，回落到角色卡 / 全局
                             actualViewModel.clearChatModelBinding(targetChatId)
                         }
+                    } else if (enable) {
+                        // op1moga: 全新安装还没有任何会话时，先建一个再绑定，
+                        // 否则「无会话 → 看不到开关 → 无法开启」会形成死结。
+                        actualViewModel.createNewChatAndBindModel(
+                            effectiveConfigMapping.configId,
+                            effectiveConfigMapping.modelIndex,
+                        )
                     }
                 },
             )
@@ -2087,7 +2094,9 @@ private fun AgentModelSelectorItem(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             // op1moga: 会话级模型绑定开关（开启后本会话独立使用所选模型）
-            if (onToggleChatModelBinding != null && !currentChatId.isNullOrBlank()) {
+            // 不再要求 currentChatId 非空：全新安装时还没有会话，
+            // 若此时隐藏开关，用户永远无法开启绑定（开启动作内部会自动建会话）。
+            if (onToggleChatModelBinding != null) {
                 val bindingEnabled = chatBoundModelConfigId != null
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
