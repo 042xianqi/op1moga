@@ -707,11 +707,13 @@ class ChatViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val previousChatId = chatHistoryDelegate.currentChatId.value
             chatHistoryDelegate.createNewChat()
-            val newChatId =
+            val newChatId: String? =
                 chatHistoryDelegate.currentChatId
                     .filter { chatId -> !chatId.isNullOrBlank() && chatId != previousChatId }
                     .first()
-            chatHistoryDelegate.setChatModelBinding(newChatId, chatModelConfigId, chatModelIndex)
+            newChatId?.let { id ->
+                chatHistoryDelegate.setChatModelBinding(id, chatModelConfigId, chatModelIndex)
+            }
         }
     }
 
